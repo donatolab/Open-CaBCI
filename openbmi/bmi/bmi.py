@@ -3,9 +3,14 @@
   Catalin Mitelut; github: "catubc"; mitelutco@gmail.com
 
 '''
-import nidaqmx
-from nidaqmx.constants import (AcquisitionType)  
-from nidaqmx.constants import TerminalConfiguration
+try:
+    import nidaqmx
+    from nidaqmx.constants import AcquisitionType
+    from nidaqmx.constants import TerminalConfiguration
+except ImportError:
+    nidaqmx = None
+    AcquisitionType = None
+    TerminalConfiguration = None
 import tqdm
 import pandas as pd
 import os
@@ -88,6 +93,9 @@ class BMI():
 
         #
         self.simulation_mode_bmi = simulation_mode_bmi
+
+        # Pace simulated imaging frames against an absolute clock when requested.
+        self.simulation_realtime = False
 
 
         #
@@ -1061,6 +1069,10 @@ class BMI():
         if self.simulation_mode_bmi == True:
             self.bscope_ttl_task = Simulation(self.fname_ttl)
         else:
+            if nidaqmx is None:
+                raise RuntimeError(
+                    "nidaqmx is required when BMI simulation mode is disabled"
+                )
                           
     
             #
@@ -1251,8 +1263,8 @@ class BMI():
                 self.last_trial_start_ttl = self.n_ttl[0]  # This is a dummy reset so that dynamics lockout doesn't break so badly
 
         # save meta data
-        self.ttl_n_computed.append(self.ttl_computed)
-        self.ttl_n_detected.append(self.n_ttl)
+        self.ttl_n_computed.append(int(self.ttl_computed))
+        self.ttl_n_detected.append(int(self.n_ttl[0]))
 
         #
         self.n_ttl+=1
@@ -1367,10 +1379,19 @@ class BMI():
                 print ("  setting up memory map: shape: ", (self.n_frames_to_be_acquired,512,512))
                 
                 if True:
+                    movie_frame_bytes = self.image_width * self.image_length * np.dtype('uint16').itemsize
+                    movie_frame_count, remainder = divmod(
+                        os.path.getsize(self.fname_fluorescence), movie_frame_bytes
+                    )
+                    if remainder or movie_frame_count < 1:
+                        raise ValueError("Invalid 512x512 uint16 fluorescence movie size")
+                    if not self.simulation_mode_bmi and movie_frame_count < self.n_frames_to_be_acquired:
+                        raise ValueError("Fluorescence movie is shorter than the requested session")
+                    self.movie_frame_count = movie_frame_count
                     self.newfp = np.memmap(self.fname_fluorescence,
                                            dtype='uint16',
                                            mode='r',
-                                           shape=self.n_frames_to_be_acquired*512*512)
+                                           shape=self.movie_frame_count*512*512)
                 
                 # if False:
                 #     fp = open(self.fname_fluorescence, "r")
@@ -1387,7 +1408,7 @@ class BMI():
 
 
                 # 
-                self.newfp = self.newfp.reshape(self.n_frames_to_be_acquired,512,512)
+                self.newfp = self.newfp.reshape(self.movie_frame_count,512,512)
 
             # reset start time: requird becaues we start the BMI a few seconds before the BScope
             self.start=self.now
@@ -1398,8 +1419,12 @@ class BMI():
             # in simulation mode we just assume that we have correctly dected a TTL pulse and add 1 extra
             #   ttl pulse to the stack
             if self.simulation_mode_bmi==True:
-                self.ttl_computed = self.n_ttl+1  # move to next ttl.
-                time.sleep(self.sleep_time_sec)
+                self.ttl_computed = int(self.n_ttl[0]) + 1  # move to next ttl.
+                if self.simulation_realtime:
+                    target_time = self.start + self.n_ttl[0] / self.sampleRate_2P
+                    time.sleep(max(0, target_time - time.perf_counter()))
+                else:
+                    time.sleep(self.sleep_time_sec)
                 
             else:
                 time_passed = self.now-self.start
@@ -1616,7 +1641,10 @@ class BMI():
             #                      self.rois[0][1]-self.roi_width:self.rois[0][1]+self.roi_width].sum()
 
             # TODO ;could just check any part of the FOV to see if there is non zero values
-            roi_sum0 = self.newfp[self.n_ttl[0]+z][self.rois_pixels_ensemble1[0]].sum()
+            frame_index = self.n_ttl[0] + z
+            if self.simulation_mode_bmi:
+                frame_index %= self.movie_frame_count
+            roi_sum0 = self.newfp[frame_index][self.rois_pixels_ensemble1[0]].sum()
 
             #
             if roi_sum0 != 0:
@@ -1636,7 +1664,10 @@ class BMI():
         # this is the same raw frame but now it is fixed for purpose of computing ROIs!!
         #  - this is the latest frame extracted
         # NOTE: outside functions do not see it unless explicitly copied
-        self.live_frame_local = self.newfp[self.n_ttl[0]+z].copy()
+        frame_index = self.n_ttl[0] + z
+        if self.simulation_mode_bmi:
+            frame_index %= self.movie_frame_count
+        self.live_frame_local = self.newfp[frame_index].copy()
 
         # # # simulate drift....
         # if False:

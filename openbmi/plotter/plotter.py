@@ -213,14 +213,19 @@ class PlotROIs():
 
     def initialize_day0_ca_mask(self):
 
-        fname = os.path.join(os.path.split(os.path.split(self.fname_rois_pixels_and_thresholds)[0])[0],\
-                                'day0',\
-                                "day0_ca_mask.npz")
-        d = np.load(fname, allow_pickle=True)
-
-        self.ca_mask_contours = d['mask_contours']
-
+        dataset_root = os.path.split(self.fname_rois_pixels_and_thresholds)[0]
+        fname = os.path.join(dataset_root, 'day0', "day0_ca_mask.npz")
+        if not os.path.exists(fname):
+            fname = os.path.join(
+                os.path.split(dataset_root)[0], 'day0', "day0_ca_mask.npz"
+            )
         self.mask_flag = 0
+
+        if os.path.exists(fname):
+            d = np.load(fname, allow_pickle=True)
+            self.ca_mask_contours = d['mask_contours']
+        else:
+            self.ca_mask_contours = []
 
     #
     def initialize_camera_frame_shared_memory(self):
@@ -1267,4 +1272,3 @@ class PlotROIs():
             print ("time for updating graph: ", time.time()-start)
             print ('')
             print ('')
-

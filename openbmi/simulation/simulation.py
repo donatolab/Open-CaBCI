@@ -17,6 +17,9 @@ class Simulation():
         self.ttl = np.load(fname_ttl)
 
     def read(self, number_of_samples_per_channel):
+        if self.index >= len(self.ttl):
+            self.index = 0
+
         # added a 2nd value for the lick detector
         ttl_val_bscope = self.ttl[self.index:self.index + number_of_samples_per_channel]
         ttl_val_lick_detector = 0

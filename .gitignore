@@ -50,3 +50,8 @@ coverage.xml
 
 # Sphinx documentation
 docs/_build/
+
+# Generated reviewer demo outputs
+openbmi/data_samples/demo_5min/data/Image_001_001.raw
+openbmi/data_samples/demo_5min/data/results.npz
+openbmi/data_samples/demo_5min/data/results.xlsx
