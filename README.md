@@ -148,7 +148,7 @@ Python environment installation normally takes 3–5 minutes on a recent desktop
 
 | Option | What it demonstrates | Recorded duration | Compressed data | Typical use |
 |---|---|---:|---:|---|
-| Lightweight smoke test | Dataset reconstruction, TTL replay, ROI extraction, BMI state computation, reward logic, result saving, and numerical validation | 33.3 seconds / 1,000 frames | 338 MiB | Reviewer installation and CI check |
+| Lightweight smoke test | Dataset reconstruction, TTL replay, ROI extraction, BCI state computation, reward logic, result saving, and numerical validation | 33.3 seconds / 1,000 frames | 338 MiB | Reviewer installation and CI check |
 | Full five-minute replay | The same complete pipeline over a sustained session, optionally with the realtime live GUI | 300 seconds / 9,000 frames | 3.1 GB | Interactive demonstration and stability check |
 
 ### Lightweight 1,000-Frame Demo
